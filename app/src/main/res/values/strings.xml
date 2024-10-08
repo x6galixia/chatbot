@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">AIMindFulTalks</string>
+    <string name="login">LOGIN</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="login_btn">Login</string>
+    <string name="don_t_have_an_account_sign_up">Don’t have an account? Sign Up</string>
+    <string name="sign_up">SIGN UP</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="already_have_an_account_login">Already have an account? Login</string>
+    <string name="say_something">say something</string>
+    <string name="home">HOME</string>
+    <string name="chat_with_ai_chatbot">Chat with AI Chatbot</string>
+    <string name="log_emotion">Log Emotion</string>
+    <string name="profile">Profile</string>
+    <string name="resource_library">Resource Library</string>
+    <string name="full_name">Full name</string>
+    <string name="ai_mindfultalks">AI MindfulTalks</string>
+    <string name="bot_s_response">Bot\'s Response</string>
+    <string name="optional_note">Optional Note</string>
+    <string name="submit">Submit</string>
+    <string name="fear">Fear</string>
+    <string name="anxious">Anxious</string>
+    <string name="sad">Sad</string>
+    <string name="happy">Happy</string>
+    <string name="select_your_emotion">select your emotion</string>
+    <string name="resource_library_title">Resource Library</string>
+    <string name="search_resources">search resources</string>
+    <string name="search">search</string>
+    <string name="profile_name">Profile</string>
+    <string name="username">username</string>
+    <string name="logout">logout</string>
+</resources>
