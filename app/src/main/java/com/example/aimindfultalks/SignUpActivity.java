@@ -22,7 +22,7 @@ import java.util.Map;
 
 public class SignUpActivity extends AppCompatActivity {
 
-    private EditText fullNameEditText, emailEditText, passwordEditText, confirmPasswordEditText;
+    private EditText firstNameEditText, middleNameEditText, lastNameEditText, usernameEditText, passwordEditText, confirmPasswordEditText;
     private Button signUpButton;
     private TextView loginLink;
     private ProgressBar progressBar;
@@ -38,8 +38,11 @@ public class SignUpActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        fullNameEditText = findViewById(R.id.full_name);
-        emailEditText = findViewById(R.id.email);
+        // Initialize UI elements
+        firstNameEditText = findViewById(R.id.first_name);
+        middleNameEditText = findViewById(R.id.middle_name);
+        lastNameEditText = findViewById(R.id.last_name);
+        usernameEditText = findViewById(R.id.username);
         passwordEditText = findViewById(R.id.password);
         confirmPasswordEditText = findViewById(R.id.confirmPassword);
         signUpButton = findViewById(R.id.signupButton);
@@ -49,23 +52,35 @@ public class SignUpActivity extends AppCompatActivity {
         signUpButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String fullName = fullNameEditText.getText().toString().trim();
-                String email = emailEditText.getText().toString().trim();
+                String firstName = firstNameEditText.getText().toString().trim();
+                String middleName = middleNameEditText.getText().toString().trim();
+                String lastName = lastNameEditText.getText().toString().trim();
+                String username = usernameEditText.getText().toString().trim();
                 String password = passwordEditText.getText().toString().trim();
                 String confirmPassword = confirmPasswordEditText.getText().toString().trim();
 
-                if (TextUtils.isEmpty(fullName)) {
-                    fullNameEditText.setError("Full name is required.");
+                if (TextUtils.isEmpty(firstName)) {
+                    firstNameEditText.setError("First name is required.");
                     return;
                 }
 
-                if (TextUtils.isEmpty(email)) {
-                    emailEditText.setError("Email is required.");
+                if (TextUtils.isEmpty(lastName)) {
+                    lastNameEditText.setError("Last name is required.");
+                    return;
+                }
+
+                if (TextUtils.isEmpty(username)) {
+                    usernameEditText.setError("Username is required.");
                     return;
                 }
 
                 if (TextUtils.isEmpty(password)) {
                     passwordEditText.setError("Password is required.");
+                    return;
+                }
+
+                if (password.length() < 6) {
+                    passwordEditText.setError("Password must be at least 6 characters.");
                     return;
                 }
 
@@ -76,15 +91,15 @@ public class SignUpActivity extends AppCompatActivity {
 
                 progressBar.setVisibility(View.VISIBLE);
 
-                // Create user with email and password
-                mAuth.createUserWithEmailAndPassword(email, password)
+                // Create user using Firebase Auth (use username@yourapp.com as a workaround for email requirement)
+                mAuth.createUserWithEmailAndPassword(username + "@yourapp.com", password)
                         .addOnCompleteListener(SignUpActivity.this, task -> {
                             if (task.isSuccessful()) {
                                 // User successfully created
                                 FirebaseUser user = mAuth.getCurrentUser();
                                 if (user != null) {
-                                    // Save the user's full name in Firestore
-                                    saveUserFullName(user.getUid(), fullName);
+                                    // Save the user's details (first name, middle name, last name, and username) in Firestore
+                                    saveUserDetails(user.getUid(), firstName, middleName, lastName, username);
 
                                     // Redirect to LoginActivity
                                     startActivity(new Intent(SignUpActivity.this, LoginActivity.class));
@@ -108,10 +123,13 @@ public class SignUpActivity extends AppCompatActivity {
         });
     }
 
-    private void saveUserFullName(String userId, String fullName) {
-        // Save the full name in Firestore under a "users" collection
+    private void saveUserDetails(String userId, String firstName, String middleName, String lastName, String username) {
+        // Save the user details in Firestore under a "users" collection
         Map<String, Object> user = new HashMap<>();
-        user.put("fullName", fullName);
+        user.put("firstName", firstName);
+        user.put("middleName", middleName);
+        user.put("lastName", lastName);
+        user.put("username", username);
 
         db.collection("users").document(userId).set(user)
                 .addOnSuccessListener(aVoid -> {

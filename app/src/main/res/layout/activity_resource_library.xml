@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@drawable/ic_bg"
     android:padding="16dp">
 
     <LinearLayout
@@ -27,7 +28,7 @@
         android:id="@+id/searchEditText"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:hint="@string/search_resources"
+        android:hint="Search... ex. Motivation"
         android:padding="10dp"
         android:layout_marginTop="16dp"/>
 

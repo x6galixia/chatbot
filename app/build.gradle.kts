@@ -50,6 +50,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-analytics")
 
+    implementation("com.google.code.gson:gson:2.8.9")
+    implementation("androidx.recyclerview:recyclerview:1.2.1")
+
     // Android support libraries
     implementation(libs.appcompat)
     implementation(libs.material)
@@ -60,5 +63,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-}
 
+    // Room components for Java
+    implementation("androidx.room:room-runtime:2.5.0")
+    annotationProcessor("androidx.room:room-compiler:2.5.0")
+    implementation("androidx.room:room-ktx:2.5.0")
+}

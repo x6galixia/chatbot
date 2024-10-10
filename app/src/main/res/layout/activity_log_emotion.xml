@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@drawable/ic_bg"
     android:padding="16dp">
 
     <LinearLayout
@@ -20,7 +21,6 @@
             android:text="@string/log_emotion"
             android:background="@drawable/border_textview"
             android:textColor="@color/black" />
-
     </LinearLayout>
 
     <LinearLayout
@@ -36,7 +36,6 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:text="@string/select_your_emotion"/>
-
     </LinearLayout>
 
     <LinearLayout
@@ -54,17 +53,23 @@
             android:layout_marginRight="60dp">
 
             <Button
-                android:id="@+id/button_happy"
+                android:id="@+id/button_angry"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:background="@drawable/ic_emotion"/>
+                android:background="@drawable/ic_angry"/>
 
             <TextView
+                android:id="@+id/text_angry"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Happy"
-                android:textStyle="bold"/>
-
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:layout_margin="5dp"
+                android:text="Angry"
+                android:textStyle="bold"
+                android:background="@android:color/transparent"/> <!-- Initial background -->
         </LinearLayout>
 
         <LinearLayout
@@ -80,13 +85,18 @@
                 android:background="@drawable/ic_sad"/>
 
             <TextView
+                android:id="@+id/text_sad"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:layout_margin="5dp"
                 android:text="Sad"
-                android:textStyle="bold"/>
-
+                android:textStyle="bold"
+                android:background="@android:color/transparent"/>
         </LinearLayout>
-
     </LinearLayout>
 
     <LinearLayout
@@ -106,15 +116,20 @@
                 android:id="@+id/button_anxious"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:paddingTop="10dp"
                 android:background="@drawable/ic_anxious" />
 
             <TextView
+                android:id="@+id/text_anxious"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Anxious"
-                android:textStyle="bold"/>
-
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:layout_margin="5dp"
+                android:text="Anxiety"
+                android:textStyle="bold"
+                android:background="@android:color/transparent"/>
         </LinearLayout>
 
         <LinearLayout
@@ -130,19 +145,24 @@
                 android:background="@drawable/ic_fear" />
 
             <TextView
+                android:id="@+id/text_fear"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
                 android:text="Fear"
-                android:textStyle="bold"/>
-
+                android:textStyle="bold"
+                android:background="@android:color/transparent"/>
         </LinearLayout>
-
     </LinearLayout>
 
     <EditText
         android:id="@+id/botResponseEditText"
         android:layout_width="match_parent"
-        android:layout_height="170dp"
+        android:layout_height="246dp"
         android:layout_marginTop="16dp"
         android:focusable="false"
         android:gravity="top"
@@ -151,25 +171,4 @@
         android:padding="10dp"
         android:scrollbars="vertical"
         android:textColorHint="#546E7A" />
-
-    <EditText
-        android:id="@+id/noteEditText"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:hint="@string/optional_note"
-        android:padding="10dp"
-        android:layout_marginTop="16dp"
-        android:inputType="textMultiLine"
-        android:gravity="top"
-        android:scrollbars="vertical"/>
-
-    <Button
-        android:id="@+id/submitButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/submit"
-        android:layout_marginTop="16dp"
-        android:textColor="@color/white"
-        android:background="@drawable/border_button"/>
-
 </LinearLayout>

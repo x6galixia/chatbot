@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -23,11 +24,8 @@ import java.io.IOException;
 public class LogEmotionActivity extends AppCompatActivity {
 
     private EditText botResponseEditText;
-    private EditText noteEditText;
-    private Button submitButton;
-
-    // Variables to hold the selected emotion
     private String selectedEmotion;
+    private TextView lastClickedTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,34 +34,37 @@ public class LogEmotionActivity extends AppCompatActivity {
 
         // Initialize Views
         botResponseEditText = findViewById(R.id.botResponseEditText);
-        noteEditText = findViewById(R.id.noteEditText);
-        submitButton = findViewById(R.id.submitButton);
 
         // Set up emotion buttons
-        Button buttonHappy = findViewById(R.id.button_happy);
+        Button buttonHappy = findViewById(R.id.button_angry);
         Button buttonSad = findViewById(R.id.button_sad);
         Button buttonAnxious = findViewById(R.id.button_anxious);
         Button buttonFear = findViewById(R.id.button_fear);
 
-        buttonHappy.setOnClickListener(v -> selectEmotion("happy"));
-        buttonSad.setOnClickListener(v -> selectEmotion("sad"));
-        buttonAnxious.setOnClickListener(v -> selectEmotion("anxious"));
-        buttonFear.setOnClickListener(v -> selectEmotion("fear"));
+        // Assuming you have these TextViews in your XML layout
+        TextView textAngry = findViewById(R.id.text_angry);
+        TextView textSad = findViewById(R.id.text_sad);
+        TextView textAnxious = findViewById(R.id.text_anxious);
+        TextView textFear = findViewById(R.id.text_fear);
 
-        // Set up button click listener for the submit button
-        submitButton.setOnClickListener(v -> {
-            String note = noteEditText.getText().toString();
-            if (selectedEmotion != null) {
-                sendEmotionToChatbot(selectedEmotion, note);
-            } else {
-                Toast.makeText(LogEmotionActivity.this, "Please select an emotion", Toast.LENGTH_SHORT).show();
-            }
-        });
+        buttonHappy.setOnClickListener(v -> selectEmotion("angry", textAngry));
+        buttonSad.setOnClickListener(v -> selectEmotion("sad", textSad));
+        buttonAnxious.setOnClickListener(v -> selectEmotion("anxious", textAnxious));
+        buttonFear.setOnClickListener(v -> selectEmotion("fear", textFear));
     }
 
-    private void selectEmotion(String emotion) {
+    private void selectEmotion(String emotion, TextView textView) {
+        // Reset the last clicked text view's border
+        if (lastClickedTextView != null) {
+            lastClickedTextView.setBackgroundColor(getResources().getColor(android.R.color.transparent)); // Reset to transparent
+        }
+
         selectedEmotion = emotion;
+        lastClickedTextView = textView; // Store the currently clicked text view
+        textView.setBackgroundResource(R.drawable.border_textview2); // Set the border for the clicked text view
+
         Toast.makeText(this, "Selected Emotion: " + emotion, Toast.LENGTH_SHORT).show();
+        sendEmotionToChatbot(emotion, ""); // Pass empty note
     }
 
     private void sendEmotionToChatbot(String emotion, String note) {

@@ -3,9 +3,15 @@ package com.example.aimindfultalks;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -13,74 +19,146 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 public class ChatActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private ChatAdapter chatAdapter;
-    private List<ChatMessage> chatMessages;  // Change to List<ChatMessage>
+    private List<ChatMessage> chatMessages;
     private EditText messageEditText;
     private Button sendButton;
     private Button newSessionButton;
+    private Button chatHistoryButton;
+    private DrawerLayout drawerLayout;
+    private ListView chatHistoryList;
+    private List<String> chatHistoryLabels;
+
+    // Room database instance
+    private ChatSessionDatabase chatSessionDatabase;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Initialize RecyclerView
+        // Initialize Room database
+        chatSessionDatabase = ChatSessionDatabase.getInstance(this);
+
+        // Initialize Views
+        drawerLayout = findViewById(R.id.drawer_layout);
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Initialize chat messages list and adapter
         chatMessages = new ArrayList<>();
         chatAdapter = new ChatAdapter(chatMessages);
         recyclerView.setAdapter(chatAdapter);
 
-        // Initialize EditText and Buttons
         messageEditText = findViewById(R.id.messageEditText);
         sendButton = findViewById(R.id.sendButton);
         newSessionButton = findViewById(R.id.newSessionButton);
+        chatHistoryButton = findViewById(R.id.chatHistoryButton);
 
-        // Set onClickListener for Send Button
-        sendButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String message = messageEditText.getText().toString();
-                if (!message.isEmpty()) {
-                    chatMessages.add(new ChatMessage("user", message));  // Store as ChatMessage
-                    chatAdapter.notifyDataSetChanged();
-                    recyclerView.scrollToPosition(chatMessages.size() - 1);
-                    messageEditText.setText("");
+        // Initialize the chat history ListView
+        chatHistoryList = findViewById(R.id.chat_history_list);
+        chatHistoryLabels = new ArrayList<>();
 
-                    // Send the message to the chatbot
-                    sendMessageToChatbot(message);
-                }
+        // Load chat history on startup
+        loadChatHistory();
+
+        sendButton.setOnClickListener(v -> {
+            String message = messageEditText.getText().toString();
+            if (!message.isEmpty()) {
+                chatMessages.add(new ChatMessage("user", message));
+                chatAdapter.notifyDataSetChanged();
+                recyclerView.scrollToPosition(chatMessages.size() - 1);
+                messageEditText.setText("");
+                sendMessageToChatbot(message);
             }
         });
 
-        // Set onClickListener for New Session Button
-        newSessionButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Clear chat messages
-                chatMessages.clear();
-                chatAdapter.notifyDataSetChanged();
+        newSessionButton.setOnClickListener(v -> {
+            saveCurrentSession();
+            chatMessages.clear();
+            chatAdapter.notifyDataSetChanged();
+        });
+
+        chatHistoryButton.setOnClickListener(v -> {
+            // Open or close the drawer
+            if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                drawerLayout.closeDrawer(GravityCompat.START);
+            } else {
+                drawerLayout.openDrawer(GravityCompat.START);
             }
+        });
+
+        chatHistoryList.setOnItemClickListener((parent, view, position, id) -> {
+            String selectedChat = chatHistoryLabels.get(position);
+            loadChatSession(selectedChat);
+            drawerLayout.closeDrawer(GravityCompat.START);  // Correctly close the drawer
         });
     }
 
+    private void saveCurrentSession() {
+        String sessionLabel = "Session " + (chatHistoryLabels.size() + 1);
+        List<ChatMessage> currentMessages = new ArrayList<>(chatMessages);
+        ChatSession chatSession = new ChatSession(sessionLabel, currentMessages);
+
+        new Thread(() -> {
+            chatSessionDatabase.chatSessionDao().insertSession(chatSession);
+            runOnUiThread(() -> {
+                Toast.makeText(ChatActivity.this, "Session saved", Toast.LENGTH_SHORT).show();
+                loadChatHistory(); // Reload chat history labels after saving
+            });
+        }).start();
+    }
+
+    private void loadChatHistory() {
+        new Thread(() -> {
+            List<ChatSession> allSessions = chatSessionDatabase.chatSessionDao().getAllSessions();
+            chatHistoryLabels.clear();
+
+            for (ChatSession session : allSessions) {
+                Log.d("ChatActivity", "Session loaded: " + session.getSessionLabel());
+                chatHistoryLabels.add(session.getSessionLabel());
+            }
+
+            runOnUiThread(() -> {
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, chatHistoryLabels);
+                chatHistoryList.setAdapter(adapter);
+                Log.d("ChatActivity", "Chat history labels size: " + chatHistoryLabels.size());
+            });
+        }).start();
+    }
+
+    private void loadChatSession(String sessionLabel) {
+        new Thread(() -> {
+            ChatSession session = chatSessionDatabase.chatSessionDao().getSessionByLabel(sessionLabel);
+
+            if (session != null) {
+                chatMessages.clear();
+                chatMessages.addAll(session.getMessages());
+
+                runOnUiThread(() -> {
+                    chatAdapter.notifyDataSetChanged();
+                    if (!chatMessages.isEmpty()) {
+                        recyclerView.scrollToPosition(chatMessages.size() - 1);
+                    }
+                });
+            }
+        }).start();
+    }
+
     private void sendMessageToChatbot(String message) {
-        // Create the request body for Hugging Face API
         String json = "{\n" +
                 "    \"model\": \"meta-llama/Meta-Llama-3-8B-Instruct\",\n" +
                 "    \"messages\": [{\"role\": \"user\", \"content\": \"" + message + "\"}],\n" +
@@ -88,8 +166,8 @@ public class ChatActivity extends AppCompatActivity {
                 "    \"stream\": false\n" +
                 "}";
 
-        RequestBody requestBody = RequestBody.create(json, okhttp3.MediaType.parse("application/json"));
-        String apiKey = "Bearer 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";
+        RequestBody requestBody = RequestBody.create(MediaType.parse("application/json"), json);
+        String apiKey = "Bearer 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";  // Use your actual API key
 
         HuggingFaceApi huggingFaceApi = RetrofitClient.getRetrofitInstance().create(HuggingFaceApi.class);
         Call<ResponseBody> call = huggingFaceApi.getChatbotResponse(requestBody, apiKey);
@@ -138,4 +216,14 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
     }
+
+    @Override
+    public void onBackPressed() {
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
+    }
+
 }

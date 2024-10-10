@@ -6,6 +6,7 @@
     android:autofillHints="emailAddress"
     android:orientation="vertical"
     android:gravity="center"
+    android:background="@drawable/ic_bg"
     android:padding="16dp"
     app:flow_verticalGap="12dp">
 
@@ -21,19 +22,34 @@
         android:textColor="@color/black"/>
 
     <EditText
-        android:id="@+id/full_name"
+        android:id="@+id/first_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/full_name"
+        android:hint="First name"
         android:inputType="text"
         android:minHeight="48dp"/>
 
     <EditText
-        android:id="@+id/email"
+        android:id="@+id/middle_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Middle name"
+        android:inputType="text"
+        android:minHeight="48dp"/>
+    <EditText
+        android:id="@+id/last_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Last name"
+        android:inputType="text"
+        android:minHeight="48dp"/>
+
+    <EditText
+        android:id="@+id/username"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
-        android:hint="@string/email" />
+        android:hint="username" />
 
     <EditText
         android:id="@+id/password"

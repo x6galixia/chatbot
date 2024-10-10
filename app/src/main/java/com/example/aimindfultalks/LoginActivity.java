@@ -17,7 +17,7 @@ import com.google.firebase.auth.FirebaseAuth;
 
 public class LoginActivity extends AppCompatActivity {
 
-    private EditText emailEditText, passwordEditText;
+    private EditText usernameEditText, passwordEditText;
     private Button loginButton;
     private TextView signupLink;
     private ProgressBar progressBar;
@@ -32,7 +32,7 @@ public class LoginActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
 
         // Match IDs in the layout
-        emailEditText = findViewById(R.id.email);
+        usernameEditText = findViewById(R.id.username);
         passwordEditText = findViewById(R.id.password);
         loginButton = findViewById(R.id.loginButton);
         signupLink = findViewById(R.id.signupLink);
@@ -42,11 +42,11 @@ public class LoginActivity extends AppCompatActivity {
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String email = emailEditText.getText().toString().trim();
+                String username = usernameEditText.getText().toString().trim();
                 String password = passwordEditText.getText().toString().trim();
 
-                if (TextUtils.isEmpty(email)) {
-                    emailEditText.setError("Email is required.");
+                if (TextUtils.isEmpty(username)) {
+                    usernameEditText.setError("Username is required.");
                     return;
                 }
 
@@ -57,8 +57,10 @@ public class LoginActivity extends AppCompatActivity {
 
                 progressBar.setVisibility(View.VISIBLE);
 
-                // Authenticate the user
-                mAuth.signInWithEmailAndPassword(email, password)
+                // Authenticate the user (use username + @yourapp.com as email)
+                String emailForAuth = username + "@yourapp.com";
+
+                mAuth.signInWithEmailAndPassword(emailForAuth, password)
                         .addOnCompleteListener(LoginActivity.this, task -> {
                             if (task.isSuccessful()) {
                                 // Redirect to HomeActivity
