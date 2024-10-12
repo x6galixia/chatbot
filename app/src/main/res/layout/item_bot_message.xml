@@ -2,9 +2,15 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:gravity="start"
     android:padding="8dp">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_robot"
+        android:layout_marginRight="10dp"/>
 
     <TextView
         android:id="@+id/botMessageTextView"

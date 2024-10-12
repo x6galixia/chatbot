@@ -1,5 +1,6 @@
 package com.example.aimindfultalks;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -42,6 +43,9 @@ public class ChatActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private ListView chatHistoryList;
     private List<String> chatHistoryLabels;
+
+    private static final String SHARED_PREFS = "chat_prefs";
+    private static final String CHAT_MESSAGES_KEY = "chat_messages";
 
     // Room database instance
     private ChatSessionDatabase chatSessionDatabase;
@@ -87,9 +91,10 @@ public class ChatActivity extends AppCompatActivity {
         });
 
         newSessionButton.setOnClickListener(v -> {
-            saveCurrentSession();
-            chatMessages.clear();
+            saveCurrentSession();  // Save the current session before clearing the chat
+            chatMessages.clear();  // Clear the chat messages
             chatAdapter.notifyDataSetChanged();
+            saveChatMessages();  // Save the new empty state to SharedPreferences
         });
 
         chatHistoryButton.setOnClickListener(v -> {
@@ -106,6 +111,9 @@ public class ChatActivity extends AppCompatActivity {
             loadChatSession(selectedChat);
             drawerLayout.closeDrawer(GravityCompat.START);  // Correctly close the drawer
         });
+
+        // Restore chat messages if available
+        restoreChatMessages();
     }
 
     private void saveCurrentSession() {
@@ -218,6 +226,49 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        saveChatMessages();  // Save chat messages when the activity is paused (e.g., user navigates away)
+    }
+
+    private void saveChatMessages() {
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        StringBuilder messagesString = new StringBuilder();
+        for (ChatMessage message : chatMessages) {
+            messagesString.append(message.getSender()).append(":").append(message.getContent()).append(";");
+        }
+
+        editor.putString(CHAT_MESSAGES_KEY, messagesString.toString());
+        editor.apply();
+    }
+
+    private void restoreChatMessages() {
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+        String savedMessages = sharedPreferences.getString(CHAT_MESSAGES_KEY, "");
+
+        if (!savedMessages.isEmpty()) {
+            chatMessages.clear();
+            String[] messagesArray = savedMessages.split(";");
+
+            for (String messagePair : messagesArray) {
+                if (!messagePair.isEmpty()) {
+                    String[] parts = messagePair.split(":");
+                    if (parts.length == 2) {
+                        chatMessages.add(new ChatMessage(parts[0], parts[1]));
+                    }
+                }
+            }
+
+            chatAdapter.notifyDataSetChanged();
+            if (!chatMessages.isEmpty()) {
+                recyclerView.scrollToPosition(chatMessages.size() - 1);
+            }
+        }
+    }
+
+    @Override
     public void onBackPressed() {
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START);
@@ -225,5 +276,4 @@ public class ChatActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-
 }
