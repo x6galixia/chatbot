@@ -9,7 +9,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -128,8 +127,8 @@ public class ProfileActivity extends AppCompatActivity {
                         if (deleteTask.isSuccessful()) {
                             // Optionally delete chat sessions from local storage
                             new Thread(() -> {
-                                ChatSessionDatabase db = ChatSessionDatabase.getInstance(this);
-                                db.chatSessionDao().deleteAllSessions();
+                                ChatSessionDatabase chatSessionDatabase = ChatSessionDatabase.getInstance(this);
+                                chatSessionDatabase.chatSessionDao().deleteAllSessions();  // Clear the chat sessions from Room
                                 runOnUiThread(() -> {
                                     Toast.makeText(ProfileActivity.this, "Account deleted successfully.", Toast.LENGTH_SHORT).show();
                                     logoutUser(); // Log out the user after deletion

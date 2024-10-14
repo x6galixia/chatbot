@@ -1,6 +1,6 @@
 package com.example.aimindfultalks;
 
-import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -16,13 +16,18 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
@@ -44,19 +49,22 @@ public class ChatActivity extends AppCompatActivity {
     private ListView chatHistoryList;
     private List<String> chatHistoryLabels;
 
-    private static final String SHARED_PREFS = "chat_prefs";
-    private static final String CHAT_MESSAGES_KEY = "chat_messages";
+    // Firestore instance
+    private FirebaseFirestore firestore;
 
-    // Room database instance
-    private ChatSessionDatabase chatSessionDatabase;
+    // Room database
+    private ChatDatabase chatDatabase;
+
+    private static final String TAG = "ChatActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Initialize Room database
-        chatSessionDatabase = ChatSessionDatabase.getInstance(this);
+        // Initialize Firestore and Room
+        firestore = FirebaseFirestore.getInstance();
+        chatDatabase = ChatDatabase.getInstance(this);
 
         // Initialize Views
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -76,8 +84,9 @@ public class ChatActivity extends AppCompatActivity {
         chatHistoryList = findViewById(R.id.chat_history_list);
         chatHistoryLabels = new ArrayList<>();
 
-        // Load chat history on startup
+        // Load chat history and unsaved messages on startup
         loadChatHistory();
+        loadUnsavedMessages();  // Load messages from Room
 
         sendButton.setOnClickListener(v -> {
             String message = messageEditText.getText().toString();
@@ -92,9 +101,9 @@ public class ChatActivity extends AppCompatActivity {
 
         newSessionButton.setOnClickListener(v -> {
             saveCurrentSession();  // Save the current session before clearing the chat
+            clearSavedMessages();  // Clear unsaved messages from Room
             chatMessages.clear();  // Clear the chat messages
             chatAdapter.notifyDataSetChanged();
-            saveChatMessages();  // Save the new empty state to SharedPreferences
         });
 
         chatHistoryButton.setOnClickListener(v -> {
@@ -111,59 +120,105 @@ public class ChatActivity extends AppCompatActivity {
             loadChatSession(selectedChat);
             drawerLayout.closeDrawer(GravityCompat.START);  // Correctly close the drawer
         });
+    }
 
-        // Restore chat messages if available
-        restoreChatMessages();
+    private void loadUnsavedMessages() {
+        AsyncTask.execute(() -> {
+            List<ChatMessageEntity> savedMessages = chatDatabase.chatMessageDao().getAllMessages();
+            runOnUiThread(() -> {
+                for (ChatMessageEntity entity : savedMessages) {
+                    chatMessages.add(new ChatMessage(entity.getSender(), entity.getContent()));
+                }
+                chatAdapter.notifyDataSetChanged();
+                if (!chatMessages.isEmpty()) {
+                    recyclerView.scrollToPosition(chatMessages.size() - 1);
+                }
+            });
+        });
     }
 
     private void saveCurrentSession() {
         String sessionLabel = "Session " + (chatHistoryLabels.size() + 1);
         List<ChatMessage> currentMessages = new ArrayList<>(chatMessages);
-        ChatSession chatSession = new ChatSession(sessionLabel, currentMessages);
 
-        new Thread(() -> {
-            chatSessionDatabase.chatSessionDao().insertSession(chatSession);
-            runOnUiThread(() -> {
-                Toast.makeText(ChatActivity.this, "Session saved", Toast.LENGTH_SHORT).show();
-                loadChatHistory(); // Reload chat history labels after saving
-            });
-        }).start();
+        // Prepare the data to be saved in Firestore
+        Map<String, Object> sessionData = new HashMap<>();
+        sessionData.put("label", sessionLabel);
+        sessionData.put("messages", currentMessages);
+
+        // Save the session to Firestore
+        firestore.collection("chat_sessions")
+                .add(sessionData)
+                .addOnSuccessListener(documentReference -> {
+                    Toast.makeText(ChatActivity.this, "Session saved to Firestore", Toast.LENGTH_SHORT).show();
+                    loadChatHistory();  // Reload chat history labels after saving
+                })
+                .addOnFailureListener(e -> Log.w(TAG, "Error saving session", e));
+    }
+
+    private void clearSavedMessages() {
+        AsyncTask.execute(() -> chatDatabase.chatMessageDao().clearMessages());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        saveChatMessages();  // Save chat messages when the activity is paused
+    }
+
+    private void saveChatMessages() {
+        AsyncTask.execute(() -> {
+            chatDatabase.chatMessageDao().clearMessages();  // Clear existing messages
+            for (ChatMessage message : chatMessages) {
+                ChatMessageEntity entity = new ChatMessageEntity(message.getSender(), message.getContent());
+                chatDatabase.chatMessageDao().insertMessage(entity);  // Save current messages
+            }
+        });
     }
 
     private void loadChatHistory() {
-        new Thread(() -> {
-            List<ChatSession> allSessions = chatSessionDatabase.chatSessionDao().getAllSessions();
-            chatHistoryLabels.clear();
+        firestore.collection("chat_sessions")
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        chatHistoryLabels.clear();
+                        for (QueryDocumentSnapshot document : task.getResult()) {
+                            String sessionLabel = document.getString("label");
+                            chatHistoryLabels.add(sessionLabel);
+                        }
 
-            for (ChatSession session : allSessions) {
-                Log.d("ChatActivity", "Session loaded: " + session.getSessionLabel());
-                chatHistoryLabels.add(session.getSessionLabel());
-            }
-
-            runOnUiThread(() -> {
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, chatHistoryLabels);
-                chatHistoryList.setAdapter(adapter);
-                Log.d("ChatActivity", "Chat history labels size: " + chatHistoryLabels.size());
-            });
-        }).start();
+                        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, chatHistoryLabels);
+                        chatHistoryList.setAdapter(adapter);
+                    } else {
+                        Log.w(TAG, "Error getting chat history.", task.getException());
+                    }
+                });
     }
 
     private void loadChatSession(String sessionLabel) {
-        new Thread(() -> {
-            ChatSession session = chatSessionDatabase.chatSessionDao().getSessionByLabel(sessionLabel);
+        firestore.collection("chat_sessions")
+                .whereEqualTo("label", sessionLabel)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                        QueryDocumentSnapshot document = (QueryDocumentSnapshot) task.getResult().getDocuments().get(0);
+                        List<Map<String, Object>> messages = (List<Map<String, Object>>) document.get("messages");
 
-            if (session != null) {
-                chatMessages.clear();
-                chatMessages.addAll(session.getMessages());
+                        chatMessages.clear();
+                        for (Map<String, Object> messageData : messages) {
+                            String sender = (String) messageData.get("sender");
+                            String content = (String) messageData.get("content");
+                            chatMessages.add(new ChatMessage(sender, content));
+                        }
 
-                runOnUiThread(() -> {
-                    chatAdapter.notifyDataSetChanged();
-                    if (!chatMessages.isEmpty()) {
-                        recyclerView.scrollToPosition(chatMessages.size() - 1);
+                        chatAdapter.notifyDataSetChanged();
+                        if (!chatMessages.isEmpty()) {
+                            recyclerView.scrollToPosition(chatMessages.size() - 1);
+                        }
+                    } else {
+                        Log.w(TAG, "Error loading session", task.getException());
                     }
                 });
-            }
-        }).start();
     }
 
     private void sendMessageToChatbot(String message) {
@@ -186,7 +241,7 @@ public class ChatActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     try {
                         String botResponse = response.body().string();
-                        Log.d("ChatActivity", "Raw bot response: " + botResponse);
+                        Log.d(TAG, "Raw bot response: " + botResponse);
 
                         JSONObject jsonResponse = new JSONObject(botResponse);
 
@@ -201,71 +256,28 @@ public class ChatActivity extends AppCompatActivity {
                                     chatAdapter.notifyDataSetChanged();
                                     recyclerView.scrollToPosition(chatMessages.size() - 1);
                                 } else {
-                                    Log.e("ChatActivity", "No 'message' or 'content' in the choice object");
+                                    Log.e(TAG, "No 'message' or 'content' in the choice object");
                                 }
                             } else {
-                                Log.e("ChatActivity", "Empty 'choices' array");
+                                Log.e(TAG, "Empty 'choices' array");
                             }
                         } else {
-                            Log.e("ChatActivity", "No 'choices' array in the response");
+                            Log.e(TAG, "No 'choices' array in the response");
                         }
 
                     } catch (IOException | JSONException e) {
                         e.printStackTrace();
                     }
                 } else {
-                    Log.e("ChatActivity", "Response code: " + response.code());
+                    Log.e(TAG, "Response code: " + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Log.e("ChatActivity", "Error: " + t.getMessage());
+                Log.e(TAG, "Error: " + t.getMessage());
             }
         });
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        saveChatMessages();  // Save chat messages when the activity is paused (e.g., user navigates away)
-    }
-
-    private void saveChatMessages() {
-        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-
-        StringBuilder messagesString = new StringBuilder();
-        for (ChatMessage message : chatMessages) {
-            messagesString.append(message.getSender()).append(":").append(message.getContent()).append(";");
-        }
-
-        editor.putString(CHAT_MESSAGES_KEY, messagesString.toString());
-        editor.apply();
-    }
-
-    private void restoreChatMessages() {
-        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
-        String savedMessages = sharedPreferences.getString(CHAT_MESSAGES_KEY, "");
-
-        if (!savedMessages.isEmpty()) {
-            chatMessages.clear();
-            String[] messagesArray = savedMessages.split(";");
-
-            for (String messagePair : messagesArray) {
-                if (!messagePair.isEmpty()) {
-                    String[] parts = messagePair.split(":");
-                    if (parts.length == 2) {
-                        chatMessages.add(new ChatMessage(parts[0], parts[1]));
-                    }
-                }
-            }
-
-            chatAdapter.notifyDataSetChanged();
-            if (!chatMessages.isEmpty()) {
-                recyclerView.scrollToPosition(chatMessages.size() - 1);
-            }
-        }
     }
 
     @Override
