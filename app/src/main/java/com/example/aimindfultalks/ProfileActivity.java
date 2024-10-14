@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -18,6 +19,7 @@ import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class ProfileActivity extends AppCompatActivity {
 
@@ -123,26 +125,42 @@ public class ProfileActivity extends AppCompatActivity {
             AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), password);
             user.reauthenticate(credential).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
-                    user.delete().addOnCompleteListener(deleteTask -> {
-                        if (deleteTask.isSuccessful()) {
-                            // Optionally delete chat sessions from local storage
-                            new Thread(() -> {
-                                ChatSessionDatabase chatSessionDatabase = ChatSessionDatabase.getInstance(this);
-                                chatSessionDatabase.chatSessionDao().deleteAllSessions();  // Clear the chat sessions from Room
-                                runOnUiThread(() -> {
-                                    Toast.makeText(ProfileActivity.this, "Account deleted successfully.", Toast.LENGTH_SHORT).show();
-                                    logoutUser(); // Log out the user after deletion
-                                });
-                            }).start();
-                        } else {
-                            Toast.makeText(ProfileActivity.this, "Failed to delete account. Try again.", Toast.LENGTH_SHORT).show();
-                        }
+                    // Delete chat sessions related to the user
+                    deleteUserChatSessions(user.getUid(), () -> {
+                        // Now delete the user account
+                        user.delete().addOnCompleteListener(deleteTask -> {
+                            if (deleteTask.isSuccessful()) {
+                                Toast.makeText(ProfileActivity.this, "Account deleted successfully.", Toast.LENGTH_SHORT).show();
+                                logoutUser(); // Log out the user after deletion
+                            } else {
+                                Toast.makeText(ProfileActivity.this, "Failed to delete account. Try again.", Toast.LENGTH_SHORT).show();
+                            }
+                        });
                     });
                 } else {
                     Toast.makeText(ProfileActivity.this, "Re-authentication failed. Check your password.", Toast.LENGTH_SHORT).show();
                 }
             });
         }
+    }
+
+    private void deleteUserChatSessions(String userId, Runnable onComplete) {
+        // Query Firestore for chat sessions related to the user
+        db.collection("chat_sessions")
+                .whereEqualTo("userId", userId) // Ensure you're using the correct field name for userId
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        for (QueryDocumentSnapshot document : task.getResult()) {
+                            document.getReference().delete(); // Delete each chat session
+                        }
+                        Toast.makeText(ProfileActivity.this, "User's chat sessions deleted.", Toast.LENGTH_SHORT).show();
+                        onComplete.run(); // Call the completion callback
+                    } else {
+                        Toast.makeText(ProfileActivity.this, "Failed to delete chat sessions.", Toast.LENGTH_SHORT).show();
+                        onComplete.run(); // Call the completion callback even if deletion fails
+                    }
+                });
     }
 
     private void logoutUser() {

@@ -1,6 +1,6 @@
 package com.example.aimindfultalks;
 
-import android.os.AsyncTask;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -16,6 +16,8 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -52,19 +54,17 @@ public class ChatActivity extends AppCompatActivity {
     // Firestore instance
     private FirebaseFirestore firestore;
 
-    // Room database
-    private ChatDatabase chatDatabase;
-
     private static final String TAG = "ChatActivity";
+    private static final String SHARED_PREFS = "chat_prefs"; // Shared preferences name
+    private static final String CHAT_MESSAGES_KEY = "chat_messages"; // Key for chat messages in shared preferences
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Initialize Firestore and Room
+        // Initialize Firestore
         firestore = FirebaseFirestore.getInstance();
-        chatDatabase = ChatDatabase.getInstance(this);
 
         // Initialize Views
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -84,9 +84,8 @@ public class ChatActivity extends AppCompatActivity {
         chatHistoryList = findViewById(R.id.chat_history_list);
         chatHistoryLabels = new ArrayList<>();
 
-        // Load chat history and unsaved messages on startup
+        // Load chat history on startup
         loadChatHistory();
-        loadUnsavedMessages();  // Load messages from Room
 
         sendButton.setOnClickListener(v -> {
             String message = messageEditText.getText().toString();
@@ -101,7 +100,6 @@ public class ChatActivity extends AppCompatActivity {
 
         newSessionButton.setOnClickListener(v -> {
             saveCurrentSession();  // Save the current session before clearing the chat
-            clearSavedMessages();  // Clear unsaved messages from Room
             chatMessages.clear();  // Clear the chat messages
             chatAdapter.notifyDataSetChanged();
         });
@@ -122,22 +120,13 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
-    private void loadUnsavedMessages() {
-        AsyncTask.execute(() -> {
-            List<ChatMessageEntity> savedMessages = chatDatabase.chatMessageDao().getAllMessages();
-            runOnUiThread(() -> {
-                for (ChatMessageEntity entity : savedMessages) {
-                    chatMessages.add(new ChatMessage(entity.getSender(), entity.getContent()));
-                }
-                chatAdapter.notifyDataSetChanged();
-                if (!chatMessages.isEmpty()) {
-                    recyclerView.scrollToPosition(chatMessages.size() - 1);
-                }
-            });
-        });
-    }
-
     private void saveCurrentSession() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(ChatActivity.this, "User not authenticated. Cannot save session.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String sessionLabel = "Session " + (chatHistoryLabels.size() + 1);
         List<ChatMessage> currentMessages = new ArrayList<>(chatMessages);
 
@@ -145,39 +134,28 @@ public class ChatActivity extends AppCompatActivity {
         Map<String, Object> sessionData = new HashMap<>();
         sessionData.put("label", sessionLabel);
         sessionData.put("messages", currentMessages);
+        sessionData.put("userId", user.getUid());  // Store user ID
 
         // Save the session to Firestore
         firestore.collection("chat_sessions")
-                .add(sessionData)
+                .add(sessionData)  // Adds a new document with an auto-generated ID
                 .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Session saved with ID: " + documentReference.getId());
                     Toast.makeText(ChatActivity.this, "Session saved to Firestore", Toast.LENGTH_SHORT).show();
                     loadChatHistory();  // Reload chat history labels after saving
                 })
                 .addOnFailureListener(e -> Log.w(TAG, "Error saving session", e));
     }
 
-    private void clearSavedMessages() {
-        AsyncTask.execute(() -> chatDatabase.chatMessageDao().clearMessages());
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        saveChatMessages();  // Save chat messages when the activity is paused
-    }
-
-    private void saveChatMessages() {
-        AsyncTask.execute(() -> {
-            chatDatabase.chatMessageDao().clearMessages();  // Clear existing messages
-            for (ChatMessage message : chatMessages) {
-                ChatMessageEntity entity = new ChatMessageEntity(message.getSender(), message.getContent());
-                chatDatabase.chatMessageDao().insertMessage(entity);  // Save current messages
-            }
-        });
-    }
-
     private void loadChatHistory() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(ChatActivity.this, "User not authenticated. Cannot load chat history.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         firestore.collection("chat_sessions")
+                .whereEqualTo("userId", user.getUid())  // Filter by user ID
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -269,23 +247,14 @@ public class ChatActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                 } else {
-                    Log.e(TAG, "Response code: " + response.code());
+                    Log.e(TAG, "Response not successful: " + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Log.e(TAG, "Error: " + t.getMessage());
+                Log.e(TAG, "Request failed", t);
             }
         });
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
-            drawerLayout.closeDrawer(GravityCompat.START);
-        } else {
-            super.onBackPressed();
-        }
     }
 }
