@@ -176,6 +176,7 @@ public class ChatActivity extends AppCompatActivity {
     private void loadChatSession(String sessionLabel) {
         firestore.collection("chat_sessions")
                 .whereEqualTo("label", sessionLabel)
+                .whereEqualTo("userId", FirebaseAuth.getInstance().getCurrentUser().getUid())  // Ensure user ID matches
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && !task.getResult().isEmpty()) {
@@ -194,7 +195,7 @@ public class ChatActivity extends AppCompatActivity {
                             recyclerView.scrollToPosition(chatMessages.size() - 1);
                         }
                     } else {
-                        Log.w(TAG, "Error loading session", task.getException());
+                        Log.w(TAG, "No session found or error loading session", task.getException());
                     }
                 });
     }
