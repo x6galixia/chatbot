@@ -133,18 +133,35 @@ public class ChatActivity extends AppCompatActivity {
         // Prepare the data to be saved in Firestore
         Map<String, Object> sessionData = new HashMap<>();
         sessionData.put("label", sessionLabel);
-        sessionData.put("messages", currentMessages);
-        sessionData.put("userId", user.getUid());  // Store user ID
+        sessionData.put("messages", convertChatMessagesToMap(currentMessages));
+        sessionData.put("userId", user.getUid());
+
+        Log.d(TAG, "Session data being saved: " + sessionData); // Log the session data
 
         // Save the session to Firestore
         firestore.collection("chat_sessions")
-                .add(sessionData)  // Adds a new document with an auto-generated ID
+                .add(sessionData)
                 .addOnSuccessListener(documentReference -> {
                     Log.d(TAG, "Session saved with ID: " + documentReference.getId());
                     Toast.makeText(ChatActivity.this, "Session saved to Firestore", Toast.LENGTH_SHORT).show();
-                    loadChatHistory();  // Reload chat history labels after saving
+                    loadChatHistory();
                 })
-                .addOnFailureListener(e -> Log.w(TAG, "Error saving session", e));
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error saving session", e);
+                    Toast.makeText(ChatActivity.this, "Failed to save session: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    // Helper method to convert ChatMessage objects to a Map
+    private List<Map<String, Object>> convertChatMessagesToMap(List<ChatMessage> messages) {
+        List<Map<String, Object>> messageList = new ArrayList<>();
+        for (ChatMessage message : messages) {
+            Map<String, Object> messageMap = new HashMap<>();
+            messageMap.put("sender", message.getSender());
+            messageMap.put("content", message.getContent());
+            messageList.add(messageMap);
+        }
+        return messageList;
     }
 
     private void loadChatHistory() {
@@ -160,11 +177,15 @@ public class ChatActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         chatHistoryLabels.clear();
+                        Log.d(TAG, "Number of chat sessions found: " + task.getResult().size()); // Log the size
                         for (QueryDocumentSnapshot document : task.getResult()) {
                             String sessionLabel = document.getString("label");
-                            chatHistoryLabels.add(sessionLabel);
+                            if (sessionLabel != null) {
+                                chatHistoryLabels.add(sessionLabel);
+                            }
                         }
 
+                        // Update ListView
                         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, chatHistoryLabels);
                         chatHistoryList.setAdapter(adapter);
                     } else {
@@ -173,10 +194,12 @@ public class ChatActivity extends AppCompatActivity {
                 });
     }
 
+
+
     private void loadChatSession(String sessionLabel) {
         firestore.collection("chat_sessions")
                 .whereEqualTo("label", sessionLabel)
-                .whereEqualTo("userId", FirebaseAuth.getInstance().getCurrentUser().getUid())  // Ensure user ID matches
+                .whereEqualTo("userId", FirebaseAuth.getInstance().getCurrentUser().getUid()) // Ensure the userId matches
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && !task.getResult().isEmpty()) {
@@ -184,21 +207,27 @@ public class ChatActivity extends AppCompatActivity {
                         List<Map<String, Object>> messages = (List<Map<String, Object>>) document.get("messages");
 
                         chatMessages.clear();
-                        for (Map<String, Object> messageData : messages) {
-                            String sender = (String) messageData.get("sender");
-                            String content = (String) messageData.get("content");
-                            chatMessages.add(new ChatMessage(sender, content));
-                        }
+                        if (messages != null) {
+                            for (Map<String, Object> messageData : messages) {
+                                String sender = (String) messageData.get("sender");
+                                String content = (String) messageData.get("content");
+                                chatMessages.add(new ChatMessage(sender, content));
+                            }
 
-                        chatAdapter.notifyDataSetChanged();
-                        if (!chatMessages.isEmpty()) {
-                            recyclerView.scrollToPosition(chatMessages.size() - 1);
+                            chatAdapter.notifyDataSetChanged();
+                            if (!chatMessages.isEmpty()) {
+                                recyclerView.scrollToPosition(chatMessages.size() - 1);
+                            }
+                        } else {
+                            Log.w(TAG, "No messages found in this chat session.");
                         }
                     } else {
-                        Log.w(TAG, "No session found or error loading session", task.getException());
+                        Log.w(TAG, "Error loading session or session is empty", task.getException());
                     }
                 });
     }
+
+
 
     private void sendMessageToChatbot(String message) {
         String json = "{\n" +
