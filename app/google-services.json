@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "935510939114",
-    "project_id": "aimindfultalks",
-    "storage_bucket": "aimindfultalks.appspot.com"
+    "project_number": "707390786758",
+    "project_id": "ai-mindfull-talk",
+    "storage_bucket": "ai-mindfull-talk.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:935510939114:android:12f7c28ef0ee6b140d4e93",
+        "mobilesdk_app_id": "1:707390786758:android:1d3dac486c239173d81bc7",
         "android_client_info": {
           "package_name": "com.example.aimindfultalks"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDehL4UA_xjozjiWoSUXXZ2dwNU12YbJHM"
+          "current_key": "AIzaSyCNiSALfShfAseCxvsk2F1kyaM_pkWMG7s"
         }
       ],
       "services": {
